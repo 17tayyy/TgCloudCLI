@@ -211,6 +211,9 @@ def remove_folder(folder_name):
     print(colored(f"\n[+] Removed folder {folder_name}", "green"))
 
 def upload_file(file_path):
+
+    is_folder = os.path.isdir(file_path)
+
     if current_folder is None:
         print(colored("\n[!] No folder selected. Use 'cd <folder>' first.", "red"))
         return
@@ -219,7 +222,7 @@ def upload_file(file_path):
         print(colored("\n[!] File does not exist", "red"))
         return
 
-    file_name = os.path.basename(file_path)
+    file_name = os.path.basename(file_path) if not is_folder else None
 
     stop_progress = False
 
@@ -233,32 +236,46 @@ def upload_file(file_path):
     progress_thread = threading.Thread(target=progress_animation)
     progress_thread.start()
 
-    encrypted_file_path = encrypt_file(file_path)
-    file_name = os.path.basename(file_path)
+    if not is_folder:
+        encrypted_file_path = encrypt_file(file_path)
+        file_name = os.path.basename(file_path)
 
     try:
-        with open(encrypted_file_path, "rb") as f:
-            msg = bot.send_document(
-                CHAT_ID,
-                f,
-                caption=file_path,
-                message_thread_id=topic_ids[current_folder]
-            )
-    finally:
-        stop_progress = True 
-        progress_thread.join()
-        os.remove(encrypted_file_path)
+        files_to_upload = []
+        if is_folder:
+            for root, _, files in os.walk(file_path):
+                for file in files:
+                    files_to_upload.append(os.path.join(root, file))
+        else:
+            files_to_upload.append(file_path)
 
-    structure[current_folder].append({
-        "filename": file_name,
-        "file_id": msg.document.file_id,
-        "message_id": msg.message_id,
-        "file_size": msg.document.file_size,
-        "file_type": msg.document.mime_type
-    })
+        for file_path in files_to_upload:
+            if os.path.isfile(file_path):
+                encrypted_file_path = encrypt_file(file_path)
+                temp_file_name = os.path.basename(file_path)
+                with open(encrypted_file_path, "rb") as f:
+                    msg = bot.send_document(
+                        CHAT_ID,
+                        f,
+                        caption=temp_file_name,
+                        message_thread_id=topic_ids[current_folder]
+                    )
+                os.remove(encrypted_file_path)
+                
+                file_name_fixed = temp_file_name.replace(" ", "_")
+
+                structure[current_folder].append({
+                    "filename": file_name_fixed,
+                    "file_id": msg.document.file_id,
+                    "message_id": msg.message_id,
+                    "file_size": msg.document.file_size,
+                    "file_type": msg.document.mime_type
+                })
+    finally:
+        stop_progress = True
+        progress_thread.join()
 
     save_structure()
-    print(colored(f"\n[+] Uploaded {file_name} to {current_folder}", "green"))
 
 def download_file(file_name):
     if current_folder is None:
@@ -279,12 +296,15 @@ def download_file(file_name):
 
     def progress_animation():
         print()
+
         with tqdm(desc=f"{colored("[+] Downloading", 'blue')}", ncols=80, ascii=True) as progress:
             while not stop_progress:
                 progress.update(1)
                 time.sleep(0.1)
+
     progress_thread = threading.Thread(target=progress_animation)
     progress_thread.start()
+
     try:
         file_info = bot.get_file(file_id)
         downloaded_file = bot.download_file(file_info.file_path)
@@ -293,6 +313,7 @@ def download_file(file_name):
     finally:
         stop_progress = True 
         progress_thread.join()
+
     decrypt_file(file_path)
     print(colored(f"\n[+] Downloaded {file_name}", "green"))
 
