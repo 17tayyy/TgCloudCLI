@@ -106,7 +106,7 @@ pip install -r requirements.txt
 
 ## Credits
 
-Developed by [your name or alias].  
+Developed by tay.  
 Inspired by the flexibility and privacy of Telegram.
 
 ---
