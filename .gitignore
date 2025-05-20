@@ -3,6 +3,11 @@ testing.txt
 testing1.txt
 testing2.txt
 testing3.txt
+test.txt
+config.json
+testing2_big.txt
+tgcloud.session
+__pycache__
 topics.json
 encryption.key
 testing copy 2.txt
@@ -11,3 +16,4 @@ testing copy 4.txt
 testing copy.txt
 20MB.zip
 structure.json
+testingintest.txt
