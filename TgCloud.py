@@ -7,9 +7,11 @@ import readline
 from telethon import TelegramClient
 from telethon.tl.functions.messages import DeleteMessagesRequest
 from telethon.tl.types import DocumentAttributeFilename
+from telethon.tl.types import InputDocumentFileLocation
 from termcolor import colored
 from tqdm import tqdm
 from cryptography.fernet import Fernet
+from datetime import datetime
 
 with open("config.json") as f:
     config = json.load(f)
@@ -118,7 +120,7 @@ async def download_file(name):
     if current_folder is None:
         print(colored("\n[!] No folder selected", "red"))
         return
-
+    
     file_info = next((f for f in structure[current_folder] if f["filename"] == name), None)
     if not file_info:
         print(colored("\n[!] File not found", "red"))
@@ -127,10 +129,16 @@ async def download_file(name):
     message = await client.get_messages(chat_id, ids=file_info["message_id"])
     size = None
     desc_text = colored(f"[+] Downloading {file_info['filename']}", 'blue')
+
     if message.document:
         size = message.document.size
+        location = message.document
     elif message.media and hasattr(message.media, "document") and message.media.document:
         size = message.media.document.size
+        location = message.media.document
+    else:
+        print(colored("\n[!] No downloadable media found", "red"))
+        return
 
     print()
     progress = tqdm(total=size, unit='B', unit_scale=True, desc=desc_text, colour="magenta") if size else None
@@ -140,9 +148,20 @@ async def download_file(name):
             progress.n = current
             progress.refresh()
 
-    path = await message.download_media(progress_callback=progress_callback)
+    os.makedirs("downloads", exist_ok=True)
+    filename = file_info["filename"]
+    download_path = os.path.join("downloads", filename)
+
+    path = await client.download_file(
+        location,
+        file=download_path,
+        part_size_kb=1024,
+        progress_callback=progress_callback
+    )
+
     if progress:
         progress.close()
+
     print(colored(f"\n[+] Downloaded: {path}", "green"))
 
     if encription and path:
@@ -153,10 +172,15 @@ async def download_file(name):
         else:
             print(colored("\n[!] Decryption failed.", 'red'))
 
+
 async def upload_file(path):
     global encription
     if current_folder is None:
         print(colored("\n[!] No folder selected. Use 'cd <folder>'", "red"))
+        return
+
+    if not os.path.exists(path):
+        print(colored(f"\n[!] File '{path}' does not exist", "red"))
         return
 
     upload_path = path
@@ -181,14 +205,31 @@ async def upload_file(path):
         file=upload_path,
         caption=os.path.basename(path),
         attributes=[DocumentAttributeFilename(os.path.basename(path))],
-        progress_callback=progress_callback
+        progress_callback=progress_callback,
+        part_size_kb=1024 * 2
     )
     progress.close()
 
+    uploaded_at = None
+    if hasattr(message, "date") and message.date:
+        uploaded_at = message.date.strftime("%Y-%m-%d %H:%M:%S")
+
+    def human_readable_size(size, decimal_places=2):
+        for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+            if size < 1024.0:
+                return f"{size:.{decimal_places}f} {unit}"
+            size /= 1024.0
+        return f"{size:.{decimal_places}f} PB"
+
     structure[current_folder].append({
         "filename": os.path.basename(path),
-        "message_id": message.id
+        "message_id": message.id,
+        "size": human_readable_size(os.path.getsize(path)),
+        "encrypted": encription,
+        "original_name": os.path.basename(path),
+        "uploaded_at": uploaded_at
     })
+    
     save_structure()
     print(colored(f"\n[+] Uploaded '{path}'", "yellow"))
 
@@ -203,7 +244,8 @@ def list_files():
     else:
         print()
         for f in structure[current_folder]:
-            print(colored(f" {f['filename']}", "green"))
+            status = "encrypted" if f.get('encrypted', False) else "not encrypted"
+            print(colored(f" {f['filename']} | {f.get('size', 'N/A')} | {status} | {f.get('uploaded_at', 'N/A')}", "green"))
 
 def change_directory(folder):
     global current_folder
