@@ -7,6 +7,7 @@ test.txt
 config.json
 testing2_big.txt
 tgcloud.session
+tgcloud.session-journal
 __pycache__
 topics.json
 encryption.key
@@ -16,4 +17,12 @@ testing copy 4.txt
 testing copy.txt
 20MB.zip
 structure.json
+1850MB.txt
+2700MB.txt
+3700MB.txt
+400MB.txt
+62MB.txt
+session_name.session
+900MB.txt
 testingintest.txt
+TODO.md

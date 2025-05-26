@@ -12,6 +12,7 @@ from termcolor import colored
 from tqdm import tqdm
 from cryptography.fernet import Fernet
 from datetime import datetime
+import re
 
 with open("config.json") as f:
     config = json.load(f)
@@ -120,11 +121,16 @@ async def download_file(name):
     if current_folder is None:
         print(colored("\n[!] No folder selected", "red"))
         return
-    
+
     file_info = next((f for f in structure[current_folder] if f["filename"] == name), None)
     if not file_info:
         print(colored("\n[!] File not found", "red"))
         return
+    
+    if not encription:
+        if file_info['encrypted']:
+            print(colored("\n[!] Encrypted file! Try turning encryption on", 'red'))
+            return
 
     message = await client.get_messages(chat_id, ids=file_info["message_id"])
     size = None
@@ -162,11 +168,11 @@ async def download_file(name):
     if progress:
         progress.close()
 
-    print(colored(f"\n[+] Downloaded: {path}", "green"))
+    print(colored(f"\n[+] Downloaded: {download_path}", "green"))
 
-    if encription and path:
+    if encription and download_path:
         print(colored("\n[+] Decrypting file after download...", 'yellow'))
-        decrypted_path = decrypt_file(path)
+        decrypted_path = decrypt_file(download_path)
         if decrypted_path:
             print(colored(f"\n[+] Decrypted: {decrypted_path}", 'green'))
         else:
@@ -200,10 +206,26 @@ async def upload_file(path):
         progress.n = current
         progress.refresh()
 
+    filename = os.path.basename(path)
+    file_counter = 1
+
+    base_filename = filename
+    max_num = 0
+    pattern = re.compile(r"^\((\d+)\)\.(.+)$")
+    for file in structure[current_folder]:
+        match = pattern.match(file['filename'])
+        if file['filename'] == base_filename:
+            max_num = max(max_num, 1)
+        elif match and match.group(2) == base_filename:
+            num = int(match.group(1))
+            max_num = max(max_num, num + 1)
+    if max_num > 0:
+        filename = f"({max_num}).{base_filename}"
+
     message = await client.send_file(
         chat_id,
         file=upload_path,
-        caption=os.path.basename(path),
+        caption=filename,
         attributes=[DocumentAttributeFilename(os.path.basename(path))],
         progress_callback=progress_callback,
         part_size_kb=1024 * 2
@@ -222,7 +244,7 @@ async def upload_file(path):
         return f"{size:.{decimal_places}f} PB"
 
     structure[current_folder].append({
-        "filename": os.path.basename(path),
+        "filename": filename,
         "message_id": message.id,
         "size": human_readable_size(os.path.getsize(path)),
         "encrypted": encription,
@@ -255,20 +277,21 @@ def change_directory(folder):
     current_folder = folder
     print(colored(f"\n[+] Entered folder '{folder}'", "cyan"))
 
-async def delete_file(name):
-    if current_folder is None:
-        print(colored("\n[!] No folder selected", "red"))
+async def delete_file(name, folder=None):
+    if folder is None:
+        print(colored("\n[!] No folder specified", "red"))
         return
-    entry = next((f for f in structure[current_folder] if f["filename"] == name), None)
+
+    entry = next((f for f in structure[folder] if f["filename"] == name), None)
     if not entry:
         print(colored("\n[!] File not found", "red"))
         return
     await client.delete_messages(chat_id, entry["message_id"])
-    structure[current_folder].remove(entry)
+    structure[folder].remove(entry)
     save_structure()
     print(colored(f"\n[+] Deleted '{name}'", "yellow"))
 
-def remove_directory(dir):
+async def remove_directory(dir):
     global current_folder
     if dir not in structure:
         print(colored("\n[!] Folder not found", 'red'))
@@ -276,6 +299,15 @@ def remove_directory(dir):
     if current_folder == dir:
         print(colored("\n[!] Can't remove your current directory", 'red'))
         return
+    
+    confirm = input(colored("\n[!] Are you sure you want to delete all files in the folder? (yes/no): ", "red")).strip().lower()
+    if confirm != "yes":
+        print(colored("\n[!] Aborted folder deletion.", "yellow"))
+        return
+
+    for file in list(structure[dir]):
+        await delete_file(file["filename"], folder=dir)
+
     del structure[dir]
     save_structure()
     print(colored(f"\n[+] Deleted '{dir}' dir", 'green'))
@@ -307,13 +339,13 @@ async def pseudo_shell():
         elif cmd.startswith("mkdir "):
             await create_folder(cmd.split(" ", 1)[1])
         elif cmd.startswith("rmdir"):
-            remove_directory(cmd.split(" ", 1)[1])
+            await remove_directory(cmd.split(" ", 1)[1])
         elif cmd.startswith("put "):
             await upload_file(cmd.split(" ", 1)[1])
         elif cmd.startswith("get "):
             await download_file(cmd.split(" ", 1)[1])
         elif cmd.startswith("rm "):
-            await delete_file(cmd.split(" ", 1)[1])
+            await delete_file(cmd.split(" ", 1)[1], folder=current_folder)
         else:
             print(colored("\n[!] Unknown command", "red"))
 
