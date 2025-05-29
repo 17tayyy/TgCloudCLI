@@ -1,4 +1,5 @@
 # TgCloudCLI V2 ☁️🚀
+free unlimited storage
 
 **TgCloudCLI V2** is a console-based cloud storage system that uses Telegram as a secure backend. Upload, download, organize, and manage large files directly from your terminal, with optional encryption for extra privacy.
 
