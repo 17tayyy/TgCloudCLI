@@ -1,6 +1,6 @@
-# TgCloud V2 ☁️🚀
+# TgCloudCLI V2 ☁️🚀
 
-**TgCloud V2** is a console-based cloud storage system that uses Telegram as a secure backend. Upload, download, organize, and manage large files directly from your terminal, with optional encryption for extra privacy.
+**TgCloudCLI V2** is a console-based cloud storage system that uses Telegram as a secure backend. Upload, download, organize, and manage large files directly from your terminal, with optional encryption for extra privacy.
 
 ---
 
@@ -20,8 +20,8 @@
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/youruser/TgCloudV2.git
-   cd TgCloudV2
+   git clone https://github.com/youruser/TgCloudCLI.git
+   cd TgCloudCLI
    ```
 
 2. **(Optional) Create a virtual environment:**
@@ -44,7 +44,7 @@
 
 1. **Run the system:**
    ```bash
-   python3 TgCloud.py
+   python3 TgCloudCLI.py
    ```
 
 2. **Main commands:**
