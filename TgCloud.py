@@ -222,13 +222,17 @@ async def upload_file(path):
     if max_num > 0:
         filename = f"({max_num}).{base_filename}"
 
-    message = await client.send_file(
+    uploaded_file = await client.upload_file(
+        upload_path,
+        part_size_kb=512,
+        progress_callback=progress_callback
+    )
+
+    message = await client.send_message(
         chat_id,
-        file=upload_path,
-        caption=filename,
-        attributes=[DocumentAttributeFilename(os.path.basename(path))],
-        progress_callback=progress_callback,
-        part_size_kb=1024 * 2
+        file=uploaded_file,
+        message=filename,
+        attributes=[DocumentAttributeFilename(os.path.basename(path))]
     )
     progress.close()
 
